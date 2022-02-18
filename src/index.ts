@@ -1,8 +1,9 @@
 import express, { Application, Request, Response } from 'express';
 import http from 'http';
-import { Server, Socket } from 'socket.io';
+import { Server } from 'socket.io';
 
 import { sequelize } from './instances/sequelize'
+import onConnection from './socket-handlers/onConnection';
 
 const app: Application = express();
 
@@ -48,15 +49,7 @@ app.get('/dialogs', async (req: Request, res: Response) => {
  * Socket.IO Configuring
  * 
  */
-const onConnection  = (socket: Socket) => {
-    console.log('Client connected!')
-
-    socket.on('disconnect', () => {
-        console.log('Client disconnected!');
-    })
-}
-
-io.on('connection', onConnection)
+io.on('connection', onConnection);
 
 try {
     httpServer.listen(APP_PORT, () => {

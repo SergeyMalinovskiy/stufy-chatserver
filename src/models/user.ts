@@ -1,6 +1,6 @@
 // src/models/user.ts
 
-import { Sequelize, Model, DataTypes } from 'sequelize'
+import { Model, DataTypes } from 'sequelize'
 import { sequelize } from '../instances/sequelize'
 
 export interface UserAddModel {

@@ -9,7 +9,11 @@ const app: Application = express();
 
 const httpServer = new http.Server(app);
 
-const io = new Server(httpServer);
+const io = new Server(httpServer, {
+    cors: {
+        origin: '*'
+    }
+});
 
 const APP_PORT = 3002;
 
@@ -49,7 +53,7 @@ app.get('/dialogs', async (req: Request, res: Response) => {
  * Socket.IO Configuring
  * 
  */
-io.on('connection', onConnection);
+io.on('connection', s => onConnection(s, io));
 
 try {
     httpServer.listen(APP_PORT, () => {

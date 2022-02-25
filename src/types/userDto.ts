@@ -1,5 +1,5 @@
 export interface UserDTO { 
     userId: string, 
-    companionId: string, 
+    dialogId: string, 
     token: any 
 }

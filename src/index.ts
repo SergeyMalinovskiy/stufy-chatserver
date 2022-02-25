@@ -1,6 +1,7 @@
 import express, { Application, Request, Response } from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
+import { getRoomById } from './api/rooms';
 
 import { sequelize } from './instances/sequelize'
 import onConnection from './socket-handlers/onConnection';
@@ -32,21 +33,6 @@ sequelize.sync();
 app.get('/', async (req: Request, res: Response) => {
     res.sendFile('./index.html')
 });
-
-app.get('/messages', async (req: Request, res: Response) => {
-    console.log(req.query)
-    res.send({
-        msg: 'GetMessages'
-    }) 
-})
-
-app.get('/dialogs', async (req: Request, res: Response) => {
-    console.log(req.query)
-    res.send({
-        msg: 'GetMessages'
-    }) 
-})
-
 
 /**
  * 

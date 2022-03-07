@@ -1,12 +1,15 @@
 import { Server, Socket } from "socket.io";
+import { createMessage, MessageDTO } from "../api/messages";
 import { getAllRooms, getRoomById } from "../api/rooms";
+import { getUserById } from "../api/user";
 import { GLOBAL_ROOM } from "../constants/room";
+import { ChatManager } from "../types/ChatManager.class";
 import { Dialog, RoomCreationResult } from "../types/dialog";
 import { UserDTO } from "../types/userDto";
 import makeid from "../utils/generateRoomId";
 import mockedRooms from "./mocked-rooms";
 
-let onlineClients: string[] = [];
+let onlineClients: number[] = [];
 
 
 let activeDialogs: Array<Dialog> = [];
@@ -15,6 +18,8 @@ const validateUser = (user: UserDTO): boolean => {
     return user.userId && user.dialogId && user.token
 }
 
+const chatManager = ChatManager.getInstance();
+
 /**
  * ############################################################################################
  */
@@ -22,45 +27,44 @@ const onConnection = async (client: Socket, io: Server) => {
     
     const { handshake: { auth: authData } } = client;
 
-    const auth = authData as { userId: string, dialogId: string, token: any }
+    const auth = authData as { userId: number, dialogId: number, token: any }
 
-    const isUserAlreadyExists = onlineClients.findIndex(el => el === auth.userId) !== -1;
+    console.log(`Client ${auth.userId} connected!`);
 
-    /**
-     * Если пользователь не имеет данных авторизации или уже есть в списке пользователей онлайн, закидываем в общую комнату
-     * TODO: сделать проверку на существование пользователя в бд - запрос к бэку!
-     */
-    (!validateUser(auth) || isUserAlreadyExists) && client.disconnect();
+    const users: any[] = await getUserById(auth.userId);
 
-    !isUserAlreadyExists && onlineClients.push(auth.userId)
+    console.log(users);
 
-    const foundRooms = await getRoomById({ userId: auth.userId, roomId: auth.dialogId, jwt: {} })
+    if(users.length !== 1) client.disconnect();
 
-    
+    chatManager.addClient(auth.userId);
 
-    console.log(`Client ${auth.userId} connected!`)
-    
+    client.on('rooms:join', (roomId: number) => {
+        console.log(`Joined to "Room_${roomId}"`)
+        chatManager.setClientRoom(auth.userId, roomId);
+        client.join(String(roomId));
+    })
 
-    if(foundRooms.length !== 1) client.disconnect()
-    if(foundRooms.length === 0) {
-        client.emit('server:attention', 'Not found matched rooms, you was disconnected!');
-        client.disconnect()
-    }
+    client.on('rooms:leave', () => {
+        const clientCurrentRoom = chatManager.getClientActiveRoom(auth.userId);
+        console.log(`Leaved from "Room_${clientCurrentRoom}"`)
+        chatManager.deleteClientRoom(auth.userId, clientCurrentRoom);
+        client.leave(String(clientCurrentRoom));
+    })
 
-    const clientRoom = foundRooms[0].dialogId;
-    
-    console.log(`For client ${auth.userId} found "${foundRooms[0].dialogId}" room`)
+    client.on('message:send', async (msg: MessageDTO) => {
+        
+        const clientCurrentRoom = chatManager.getClientActiveRoom(auth.userId);
+        const result = await createMessage(msg, clientCurrentRoom);
+        console.log(msg)
 
-    client.emit('connection', 'Succesfuly connection!');
+        const r = io.to(String(clientCurrentRoom)).emit('message:received', msg)
 
-    client.join(clientRoom)
-    
-    client.on('sendMessage', msg => {
-        io.emit('messageRecieved', msg)
+        console.log(r);
     })
 
     client.on('disconnect', () => {
-        onlineClients = onlineClients.filter(cl => cl !== auth.userId);
+        chatManager.deleteClient(auth.userId);
         console.log(`Client ${auth.userId} disconnected!`);
     })
 

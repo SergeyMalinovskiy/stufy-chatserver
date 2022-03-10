@@ -1,6 +1,13 @@
 import axios from "axios";
 import API from "../constants/api";
 
+export enum MessageType {
+    Proposal= '_OrderProposal',
+    Warning = '_WARNING',
+    Info    = '_INFO',
+    Error   = '_Error'
+}
+
 export interface MessageDTO {
     sender: number,
     isReaded: boolean,
@@ -10,10 +17,11 @@ export interface MessageDTO {
     attachments: {
         url: string   
     }[],
-    isSystem: boolean
+    isSystem: boolean,
+    type: MessageType
 }
 
-export function createMessage(rawMessage: MessageDTO, roomId: number) {
+export function createMessage(rawMessage: MessageDTO, roomId: string) {
     const axr = axios.post(
         `${API.HOST}/messages`,
         {

@@ -1,5 +1,5 @@
 import { Server, Socket } from "socket.io";
-import { createMessage, MessageDTO } from "../api/messages";
+import { createMessage, MessageDTO, MessageType } from "../api/messages";
 import { getAllRooms, getRoomById } from "../api/rooms";
 import { getUserById } from "../api/user";
 import { GLOBAL_ROOM } from "../constants/room";
@@ -29,7 +29,7 @@ const onConnection = async (client: Socket, io: Server) => {
 
     const auth = authData as { userId: number, dialogId: number, token: any }
 
-    console.log(`Client ${auth.userId} connected!`);
+    console.log(`Client ${client.id} connected!`);
 
     const users: any[] = await getUserById(auth.userId);
 
@@ -37,24 +37,24 @@ const onConnection = async (client: Socket, io: Server) => {
 
     if(users.length !== 1) client.disconnect();
 
-    chatManager.addClient(auth.userId);
+    chatManager.addClient(client.id);
 
-    client.on('rooms:join', (roomId: number) => {
+    client.on('rooms:join', (roomId: string) => {
         console.log(`Joined to "Room_${roomId}"`)
-        chatManager.setClientRoom(auth.userId, roomId);
+        chatManager.setClientRoom(client.id, roomId);
         client.join(String(roomId));
     })
 
     client.on('rooms:leave', () => {
-        const clientCurrentRoom = chatManager.getClientActiveRoom(auth.userId);
+        const clientCurrentRoom = chatManager.getClientActiveRoom(client.id);
         console.log(`Leaved from "Room_${clientCurrentRoom}"`)
-        chatManager.deleteClientRoom(auth.userId, clientCurrentRoom);
+        chatManager.deleteClientRoom(client.id, clientCurrentRoom);
         client.leave(String(clientCurrentRoom));
     })
 
     client.on('message:send', async (msg: MessageDTO) => {
         
-        const clientCurrentRoom = chatManager.getClientActiveRoom(auth.userId);
+        const clientCurrentRoom = chatManager.getClientActiveRoom(client.id);
         const result = await createMessage(msg, clientCurrentRoom);
         console.log(msg)
 
@@ -63,9 +63,32 @@ const onConnection = async (client: Socket, io: Server) => {
         console.log(r);
     })
 
+    client.on('message:proposal', async (msg: MessageDTO) => {
+        const clientCurrentRoom = chatManager.getClientActiveRoom(client.id);
+        const roomClients = chatManager.getRoomClients(clientCurrentRoom);
+
+        const matchedCompanion = roomClients.find(el => el.userId !== client.id);
+
+        /**
+         * Проверка комнаты на присутствие только лишь 2х пользователей
+         */
+        if((roomClients.length && roomClients.length > 2) || !matchedCompanion) {
+            await client.send('message:notify', { text: 'Не получилось отправить предложение!', type: MessageType.Error });
+            return;
+        }
+
+        const newMsg: MessageDTO = {
+            ...msg,
+            type: MessageType.Proposal,
+            isSystem: true
+        } 
+
+        io.to(matchedCompanion.userId).emit('message:notify:recieved', newMsg);
+    })
+
     client.on('disconnect', () => {
-        chatManager.deleteClient(auth.userId);
-        console.log(`Client ${auth.userId} disconnected!`);
+        chatManager.deleteClient(client.id);
+        console.log(`Client ${client.id} disconnected!`);
     })
 
     

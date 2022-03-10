@@ -6,8 +6,8 @@
     private static instance: ChatManager;
 
     private onlineClients: Array<{
-        userId: number,
-        roomId: number
+        userId: string,
+        roomId: string
     }> = [];
 
     /**
@@ -34,23 +34,23 @@
         return this.onlineClients.length;
     }
 
-    public getRoomClients(roomId: number) {
+    public getRoomClients(roomId: string) {
         return this.onlineClients.filter(el => el.roomId === roomId)
     }
 
-    public addClient(clientId: number) {
+    public addClient(clientId: string) {
         if(this.onlineClients.findIndex(el => el.userId === clientId) !== -1) return;
 
-        this.onlineClients.push({ userId: clientId, roomId: -1 });
+        this.onlineClients.push({ userId: clientId, roomId: '' });
     }
 
-    public deleteClient(clientId: number) {
+    public deleteClient(clientId: string) {
         if(this.onlineClients.findIndex(el => el.userId === clientId) === -1) return;
 
         this.onlineClients = this.onlineClients.filter(el => el.userId !== clientId);
     }
 
-    public setClientRoom(clientId: number, roomId: number) {
+    public setClientRoom(clientId: string, roomId: string) {
         this.onlineClients = this.onlineClients.map(el => {
             return el.userId === clientId ? {
                ...el,
@@ -59,18 +59,18 @@
         });
     }
 
-    public deleteClientRoom(clientId: number, roomId: number) {
+    public deleteClientRoom(clientId: string, roomId: string) {
         this.onlineClients = this.onlineClients.map(el => {
             return el.userId === clientId ? {
                ...el,
-               roomId: -1 
+               roomId: '' 
             } : el;
         });
     }
 
-    public getClientActiveRoom(clientId: number) {
+    public getClientActiveRoom(clientId: string) {
         const room = this.onlineClients.find(el => el.userId === clientId)?.roomId;
 
-        return room ? room : -1;
+        return room ? room : '';
     }
 }

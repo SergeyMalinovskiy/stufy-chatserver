@@ -3,6 +3,7 @@ import { createMessage, MessageDTO, MessageType } from "../api/messages";
 import { getAllRooms, getRoomById } from "../api/rooms";
 import { getUserById } from "../api/user";
 import { GLOBAL_ROOM } from "../constants/room";
+import { IncomingOrderDTO } from "../models/order";
 import { ChatManager } from "../types/ChatManager.class";
 import { Dialog, RoomCreationResult } from "../types/dialog";
 import { UserDTO } from "../types/userDto";
@@ -37,9 +38,13 @@ const onConnection = async (client: Socket, io: Server) => {
 
     if(users.length !== 1) client.disconnect();
 
-    chatManager.addClient(client.id);
+    chatManager.addClient(client.id, auth.userId);
 
     client.on('rooms:join', (roomId: string) => {
+        console.log('Join attempt!')
+        if(!client) return;
+        console.log(client)
+        if(!roomId) client.disconnect();
         console.log(`Joined to "Room_${roomId}"`)
         chatManager.setClientRoom(client.id, roomId);
         client.join(String(roomId));
@@ -48,8 +53,10 @@ const onConnection = async (client: Socket, io: Server) => {
     client.on('rooms:leave', () => {
         const clientCurrentRoom = chatManager.getClientActiveRoom(client.id);
         console.log(`Leaved from "Room_${clientCurrentRoom}"`)
-        chatManager.deleteClientRoom(client.id, clientCurrentRoom);
-        client.leave(String(clientCurrentRoom));
+        if(clientCurrentRoom) {
+            chatManager.deleteClientRoom(client.id, clientCurrentRoom);
+            client.leave(String(clientCurrentRoom));
+        }
     })
 
     client.on('message:send', async (msg: MessageDTO) => {
@@ -63,7 +70,9 @@ const onConnection = async (client: Socket, io: Server) => {
         console.log(r);
     })
 
-    client.on('message:proposal', async (msg: MessageDTO) => {
+    client.on('message:proposal', async (orderProposals: IncomingOrderDTO) => {
+        if(!orderProposals) return;
+
         const clientCurrentRoom = chatManager.getClientActiveRoom(client.id);
         const roomClients = chatManager.getRoomClients(clientCurrentRoom);
 
@@ -77,13 +86,28 @@ const onConnection = async (client: Socket, io: Server) => {
             return;
         }
 
-        const newMsg: MessageDTO = {
-            ...msg,
+        const msg: MessageDTO = {
+            sender: orderProposals.customer,
+            isReaded: true,
+            text: `
+                Вам были предложены условия заказа:
+                Сроки: ${orderProposals.targetCompletionDate.toString()}
+                Сроки гарантии: ${orderProposals.garantyCompletionDate.toString()}
+                Цена: ${orderProposals.price}
+            `,
+            departureTime: Date.now(),
+            replyBy: -1,
+            attachments: [],
+            isSystem: true,
             type: MessageType.Proposal,
-            isSystem: true
-        } 
+            for: matchedCompanion.externalId,
+            dialogId: Number(matchedCompanion.roomId)
+        }
 
-        io.to(matchedCompanion.userId).emit('message:notify:recieved', newMsg);
+        const createdMessage = await createMessage(msg, matchedCompanion.roomId)
+
+        console.log(createdMessage);
+        if(createdMessage) io.to(matchedCompanion.userId).emit('message:notify:recieved', createdMessage);
     })
 
     client.on('disconnect', () => {

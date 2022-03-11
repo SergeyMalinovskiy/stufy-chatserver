@@ -7,7 +7,8 @@
 
     private onlineClients: Array<{
         userId: string,
-        roomId: string
+        roomId: string,
+        externalId?: number
     }> = [];
 
     /**
@@ -38,10 +39,10 @@
         return this.onlineClients.filter(el => el.roomId === roomId)
     }
 
-    public addClient(clientId: string) {
+    public addClient(clientId: string, externalId: number) {
         if(this.onlineClients.findIndex(el => el.userId === clientId) !== -1) return;
 
-        this.onlineClients.push({ userId: clientId, roomId: '' });
+        this.onlineClients.push({ userId: clientId, roomId: '', externalId: externalId });
     }
 
     public deleteClient(clientId: string) {

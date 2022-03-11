@@ -18,7 +18,9 @@ export interface MessageDTO {
         url: string   
     }[],
     isSystem: boolean,
-    type: MessageType
+    for?: number,
+    type: MessageType,
+    dialogId?: number
 }
 
 export function createMessage(rawMessage: MessageDTO, roomId: string) {

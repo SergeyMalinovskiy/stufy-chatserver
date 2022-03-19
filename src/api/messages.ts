@@ -2,10 +2,11 @@ import axios from "axios";
 import API from "../constants/api";
 
 export enum MessageType {
-    Proposal= '_OrderProposal',
-    Warning = '_WARNING',
-    Info    = '_INFO',
-    Error   = '_Error'
+    Default     = 1,
+    Error       = 2,
+    Warning     = 3,
+    Info        = 4,
+    Proposal    = 5
 }
 
 export interface MessageDTO {
@@ -20,19 +21,30 @@ export interface MessageDTO {
     isSystem: boolean,
     for?: number,
     type: MessageType,
-    dialogId?: number
+    dialogId?: number,
+    sender_type: string,
+    recipient_type: string,
 }
 
-export function createMessage(rawMessage: MessageDTO, roomId: string) {
+export function createMessage(rawMessage: MessageDTO, roomId: string, isSystem?: boolean, type?: MessageType) {
+    const msgPayload = {
+        sender_id: rawMessage.sender,
+        sender_type: rawMessage.sender_type,
+        recipient_id: rawMessage.for,
+        recipient_type: rawMessage.recipient_type,
+        departure_time: Date.now(),
+        chat_id: roomId,
+        text: rawMessage.text,
+        message_type: type ? type : MessageType.Default,
+        is_system: isSystem
+    }
     const axr = axios.post(
-        `${API.HOST}/messages`,
+        `${API.PROD}/messages`,
         {
-            ...rawMessage,
-            departureTime: Date.now(),
-            dialogId: roomId
+            ...msgPayload
         }
-    ).then(r => r.data)
-    .catch(err => null)
+    ).then(r => r)
+    .catch(err => err)
 
     return axr;
 }

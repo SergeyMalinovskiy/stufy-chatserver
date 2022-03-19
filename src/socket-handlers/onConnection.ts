@@ -22,7 +22,7 @@ const onConnection = async (client: Socket, io: Server) => {
     
     const { handshake: { auth: authData } } = client;
 
-    const auth = authData as { userId: number, dialogId: number, token: string }
+    const auth = authData as { userId: number, token: string }
 
     const response: AxiosResponse<any, any> = await checkUser(auth.token);
 
@@ -48,10 +48,12 @@ const onConnection = async (client: Socket, io: Server) => {
         console.log('Join attempt!')
         if(!client) return;
         console.log(client)
-        if(!roomId) client.disconnect();
+        if(!roomId) return
         console.log(`Joined to "Room_${roomId}"`)
         chatManager.setClientRoom(client.id, roomId);
         client.join(String(roomId));
+
+        console.log(chatManager.getClientActiveRoom(client.id))
     })
 
     client.on('rooms:leave', () => {
@@ -66,12 +68,46 @@ const onConnection = async (client: Socket, io: Server) => {
     client.on('message:send', async (msg: MessageDTO) => {
         
         const clientCurrentRoom = chatManager.getClientActiveRoom(client.id);
+        console.log('CLIENT_ROOM', clientCurrentRoom)
         const result = await createMessage(msg, clientCurrentRoom);
-        console.log(msg)
 
-        const r = io.to(String(clientCurrentRoom)).emit('message:received', msg)
+        if(result.status !== 201) {
+            io.to(String(clientCurrentRoom)).emit('message:send:failed', msg)
+            return;
+        }
 
-        console.log(r);
+        const responseMessage = result.data as {
+            sender_id: number,
+            sender_type: string,
+            recipient_id: number,
+            recipient_type: string,
+            chat_id: string,
+            text: string,
+            message_type: number,
+            updated_at: string,
+            created_at: string,
+            id: number
+        }
+
+        const newMessage: MessageDTO & { id: number } = {
+            sender: responseMessage.sender_id,
+            sender_type: responseMessage.sender_type,
+            for: responseMessage.recipient_id,
+            recipient_type: responseMessage.recipient_type,
+            dialogId: Number(responseMessage.chat_id),
+            text: responseMessage.text,
+            type: responseMessage.message_type,
+            id: responseMessage.id,
+            isSystem: false,
+            departureTime: responseMessage.created_at,
+            attachments: [],
+            isReaded: true,
+            replyBy: msg.replyBy
+        }
+
+        io.to(String(clientCurrentRoom)).emit('message:received', newMessage)
+
+        //console.log(r);
     })
 
     client.on('message:proposal', async (orderProposals: IncomingOrderDTO) => {
@@ -90,6 +126,7 @@ const onConnection = async (client: Socket, io: Server) => {
             return;
         }
 
+        /*
         const msg: MessageDTO = {
             sender: orderProposals.customer,
             isReaded: true,
@@ -111,7 +148,7 @@ const onConnection = async (client: Socket, io: Server) => {
         const createdMessage = await createMessage(msg, matchedCompanion.roomId)
 
         console.log(createdMessage);
-        if(createdMessage) io.to(matchedCompanion.userId).emit('message:notify:recieved', createdMessage);
+        if(createdMessage) io.to(matchedCompanion.userId).emit('message:notify:recieved', createdMessage);*/
     })
 
     client.on('disconnect', () => {

@@ -1,11 +1,11 @@
 import axios from "axios";
 import API from "../constants/api";
 
-export function getUserById(id: number) {
+export function checkUser(token: string) {
     const axr = axios.get(
-        `${API.HOST}/users?id=${id}`
-    ).then(r => r.data)
-    .catch(err => [])
+        `${API.PROD}/auth/executor/me?token=${token}`,
+    ).then(r => r)
+    .catch(err => err)
 
     return axr;
 }

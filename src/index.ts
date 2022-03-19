@@ -1,9 +1,7 @@
 import express, { Application, Request, Response } from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
-import { getRoomById } from './api/rooms';
 
-import { sequelize } from './instances/sequelize'
 import onConnection from './socket-handlers/onConnection';
 
 const app: Application = express();
@@ -22,8 +20,6 @@ console.log(process.env)
 
 
 app.use(express.static('public'));
-
-sequelize.sync();
 
 /**
  * 

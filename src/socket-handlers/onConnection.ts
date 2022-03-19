@@ -1,19 +1,13 @@
+import { AxiosResponse } from "axios";
 import { Server, Socket } from "socket.io";
 import { createMessage, MessageDTO, MessageType } from "../api/messages";
 import { getAllRooms, getRoomById } from "../api/rooms";
-import { getUserById } from "../api/user";
+import { checkUser } from "../api/user";
 import { GLOBAL_ROOM } from "../constants/room";
 import { IncomingOrderDTO } from "../models/order";
 import { ChatManager } from "../types/ChatManager.class";
 import { Dialog, RoomCreationResult } from "../types/dialog";
 import { UserDTO } from "../types/userDto";
-import makeid from "../utils/generateRoomId";
-import mockedRooms from "./mocked-rooms";
-
-let onlineClients: number[] = [];
-
-
-let activeDialogs: Array<Dialog> = [];
 
 const validateUser = (user: UserDTO): boolean => {
     return user.userId && user.dialogId && user.token
@@ -28,15 +22,25 @@ const onConnection = async (client: Socket, io: Server) => {
     
     const { handshake: { auth: authData } } = client;
 
-    const auth = authData as { userId: number, dialogId: number, token: any }
+    const auth = authData as { userId: number, dialogId: number, token: string }
+
+    const response: AxiosResponse<any, any> = await checkUser(auth.token);
+
+    if(!response || response.status !== 200) {
+        
+        console.log(`Client ${client.id} aborted by auth failed!`);
+        client.emit(
+            'disconnect:force', 
+            { 
+                status: 401, 
+                reason: 'Failed auth data!', 
+                message: 'You have been disconnected by the decision of the server!' 
+            }
+        )
+        client.disconnect();
+    }
 
     console.log(`Client ${client.id} connected!`);
-
-    const users: any[] = await getUserById(auth.userId);
-
-    console.log(users);
-
-    if(users.length !== 1) client.disconnect();
 
     chatManager.addClient(client.id, auth.userId);
 
